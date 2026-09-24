@@ -9,6 +9,7 @@ func main() {
 	serveMux := http.NewServeMux()
 
 	serveMux.Handle("/", http.FileServer(http.Dir(".")))
+	serveMux.Handle("/api", http.FileServer(http.Dir(".")))
 
 	server := http.Server{
 		Handler: serveMux,
