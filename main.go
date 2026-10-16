@@ -1,16 +1,25 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"sync/atomic"
 )
+
+type apiConfig struct {
+	fileserverHits atomic.Int32
+}
 
 func main() {
 	mux := http.NewServeMux()
 	var server *http.Server
+	var conf apiConfig
 
-	mux.Handle("/app/", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+	mux.Handle("/app/", conf.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("/healthz/", healthHandler)
+	mux.HandleFunc("/metrics/", conf.metricHandler)
+	mux.HandleFunc("/reset/", conf.resetHandler)
 
 	server = &http.Server{
 		Handler: mux,
@@ -18,6 +27,19 @@ func main() {
 	}
 
 	log.Fatal(server.ListenAndServe())
+}
+
+func (cfg *apiConfig) middlewareMetricsInc(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(resWriter http.ResponseWriter, req *http.Request) {
+		cfg.fileserverHits.Add(1)
+		handler.ServeHTTP(resWriter, req)
+	})
+}
+
+func (cfg *apiConfig) resetHandler(resWriter http.ResponseWriter, req *http.Request) {
+	resWriter.WriteHeader(200)
+	resWriter.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	cfg.fileserverHits.Store(0)
 }
 
 func healthHandler(resWriter http.ResponseWriter, req *http.Request) {
@@ -28,4 +50,15 @@ func healthHandler(resWriter http.ResponseWriter, req *http.Request) {
 	}
 
 	resWriter.Header().Set("Content-Type", "text/plain; charset=utf-8")
+}
+
+func (cfg *apiConfig) metricHandler(resWriter http.ResponseWriter, req *http.Request) {
+	resWriter.WriteHeader(200)
+	resWriter.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+	hitString := fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())
+
+	if _, err := resWriter.Write([]byte(hitString)); err != nil {
+		log.Fatal("could not write response message")
+	}
 }
