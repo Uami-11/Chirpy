@@ -17,9 +17,9 @@ func main() {
 	var conf apiConfig
 
 	mux.Handle("/app/", conf.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("/healthz/", healthHandler)
-	mux.HandleFunc("/metrics/", conf.metricHandler)
-	mux.HandleFunc("/reset/", conf.resetHandler)
+	mux.HandleFunc("GET /healthz/", healthHandler)
+	mux.HandleFunc("GET /metrics/", conf.metricHandler)
+	mux.HandleFunc("POST /reset/", conf.resetHandler)
 
 	server = &http.Server{
 		Handler: mux,
