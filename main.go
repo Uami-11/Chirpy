@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -38,7 +39,7 @@ func chirpHandler(resWriter http.ResponseWriter, req *http.Request) {
 
 	type returnVals struct {
 		Error string `json:"error"`
-		Valid bool   `json:"valid"`
+		Body  string `json:"body"`
 	}
 
 	resWriter.Header().Set("Content-Type", "application/json")
@@ -80,9 +81,11 @@ func chirpHandler(resWriter http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	theChirp.Body = dirtyDudesMustDie(theChirp.Body)
+
 	resWriter.WriteHeader(200)
 	responseBody := returnVals{
-		Valid: true,
+		Body: theChirp.Body,
 	}
 	dat, err := json.Marshal(responseBody)
 	if err != nil {
@@ -92,6 +95,28 @@ func chirpHandler(resWriter http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatal("cant write request")
 	}
+}
+
+func dirtyDudesMustDie(body string) string {
+	profane := map[string]bool{
+		"kerfuffle": true,
+		"sharbert":  true,
+		"fornax":    true,
+	}
+
+	var finalBody strings.Builder
+
+	words := strings.Fields(body)
+
+	for _, word := range words {
+		if profane[strings.ToLower(string(word))] {
+			finalBody.WriteString("****")
+		} else {
+			finalBody.WriteString(string(word))
+		}
+		finalBody.WriteRune(' ')
+	}
+	return finalBody.String()
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(handler http.Handler) http.Handler {
