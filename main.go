@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,6 +21,7 @@ func main() {
 	mux.HandleFunc("GET /api/healthz/", healthHandler)
 	mux.HandleFunc("GET /admin/metrics/", conf.metricHandler)
 	mux.HandleFunc("POST /admin/reset/", conf.resetHandler)
+	mux.HandleFunc("POST /api/validate_chirp", chirpHandler)
 
 	server = &http.Server{
 		Handler: mux,
@@ -27,6 +29,69 @@ func main() {
 	}
 
 	log.Fatal(server.ListenAndServe())
+}
+
+func chirpHandler(resWriter http.ResponseWriter, req *http.Request) {
+	type chirp struct {
+		Body string `json:"body"`
+	}
+
+	type returnVals struct {
+		Error string `json:"error"`
+		Valid bool   `json:"valid"`
+	}
+
+	resWriter.Header().Set("Content-Type", "application/json")
+
+	decoder := json.NewDecoder(req.Body)
+
+	var theChirp chirp
+
+	if err := decoder.Decode(&theChirp); err != nil {
+		resWriter.WriteHeader(500)
+		responseBody := returnVals{
+			Error: "Something went wrong",
+		}
+		dat, err := json.Marshal(responseBody)
+		if err != nil {
+			log.Fatal("could not write to json")
+		}
+
+		_, err = resWriter.Write(dat)
+		if err != nil {
+			log.Fatal("cant write request")
+		}
+		return
+	}
+
+	if len(theChirp.Body) > 140 {
+		resWriter.WriteHeader(400)
+		responseBody := returnVals{
+			Error: "chirp is tooo long",
+		}
+		dat, err := json.Marshal(responseBody)
+		if err != nil {
+			log.Fatal("could not write to json")
+		}
+		_, err = resWriter.Write(dat)
+		if err != nil {
+			log.Fatal("cant write request")
+		}
+		return
+	}
+
+	resWriter.WriteHeader(200)
+	responseBody := returnVals{
+		Valid: true,
+	}
+	dat, err := json.Marshal(responseBody)
+	if err != nil {
+		log.Fatal("could not write to json")
+	}
+	_, err = resWriter.Write(dat)
+	if err != nil {
+		log.Fatal("cant write request")
+	}
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(handler http.Handler) http.Handler {
