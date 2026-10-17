@@ -17,9 +17,9 @@ func main() {
 	var conf apiConfig
 
 	mux.Handle("/app/", conf.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("GET /healthz/", healthHandler)
-	mux.HandleFunc("GET /metrics/", conf.metricHandler)
-	mux.HandleFunc("POST /reset/", conf.resetHandler)
+	mux.HandleFunc("GET /api/healthz/", healthHandler)
+	mux.HandleFunc("GET /admin/metrics/", conf.metricHandler)
+	mux.HandleFunc("POST /admin/reset/", conf.resetHandler)
 
 	server = &http.Server{
 		Handler: mux,
@@ -54,9 +54,9 @@ func healthHandler(resWriter http.ResponseWriter, req *http.Request) {
 
 func (cfg *apiConfig) metricHandler(resWriter http.ResponseWriter, req *http.Request) {
 	resWriter.WriteHeader(200)
-	resWriter.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	resWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	hitString := fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())
+	hitString := fmt.Sprintf("<html><body><h1>Welcome, Chirpy Admin</h1><p>Chirpy has been visited %d times!</p></body></html>", cfg.fileserverHits.Load())
 
 	if _, err := resWriter.Write([]byte(hitString)); err != nil {
 		log.Fatal("could not write response message")
